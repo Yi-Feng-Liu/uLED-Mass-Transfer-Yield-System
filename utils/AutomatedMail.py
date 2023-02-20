@@ -8,14 +8,14 @@ from glob import glob
 
 class auto_mail():
     def __init__(self):
-        self.Rmail_user = 'Alan.YF.Liu@auo.com'
-        self.Cmail_user = 'Alan.YF.Liu@auo.com'
+        self.Rmail_user = 'Alan.YF.Liu@gmail.com'
+        self.Cmail_user = 'Alan.YF.Liu@gmail.com'
         self.now = datetime.now().strftime('%Y%m%d%H%M')
-        self.client = zeep.Client("http://ids.cdn.corpnet.auo.com/IDS_WS/Mail.asmx?wsdl") 
+        self.client = zeep.Client("Path of URL") 
         # connect to the server for save image 
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect("ltaiw01", 22, "wma", "wma")
+        ssh.connect(host, 22, user, password)
         self.sftp_client = ssh.open_sftp()
         self.OUTPUT_FILE_PATH = './report_production/'
 
@@ -38,9 +38,9 @@ class auto_mail():
                 for i in glob(self.OUTPUT_FILE_PATH + "*.jpg"):
                     var_str = i.split("\\")[-1]
                     self.sftp_client.put(
-                        localpath=self.OUTPUT_FILE_PATH + var_str, remotepath=f"/app_1/wma/deploy/download/mail_image/{var_str}"
+                        localpath=self.OUTPUT_FILE_PATH + var_str, remotepath=f"/the/path/you/deploy/mail_image/{var_str}"
                     )
-                    html_AOI_chart = '<br><br>' + MFG_DATE + '<br><br>' + f'<img src="http://ltaiw01:8081/download/mail_image/{var_str}"  width="2100" height="1500">'
+                    html_AOI_chart = '<br><br>' + MFG_DATE + '<br><br>' + f'<img src="http://the/path/save_image/{var_str}"  width="2100" height="1500">'
 
                     mail_picture_string = mail_picture_string + html_AOI_chart + '<br><br>'
 
@@ -51,9 +51,9 @@ class auto_mail():
                 for j in glob(self.OUTPUT_FILE_PATH + "*.pptx"):
                     var_str = j.split("\\")[-1]
                     self.sftp_client.put(
-                        localpath=self.OUTPUT_FILE_PATH + var_str, remotepath=f"/app_1/wma/deploy/download/mail_image/{var_str}"
+                        localpath=self.OUTPUT_FILE_PATH + var_str, remotepath=f"/the/path/you/deploy/mail_image/{var_str}"
                     )
-                    html_PPT_report_link = '<br><br>' + MFG_DATE + '<br><br>' + f'<a href="http://ltaiw01:8081/download/mail_image/{var_str}"><h3>PPT Report link</h3></a>'
+                    html_PPT_report_link = '<br><br>' + MFG_DATE + '<br><br>' + f'<a href="http://the/path/save_image/{var_str}"><h3>PPT Report link</h3></a>'
                     
 
             if len(mail_picture_string) != 0:
@@ -118,8 +118,8 @@ class alarmAutoMail(auto_mail):
 
 class customMessageAutoMail(auto_mail):
     def __init__(self):
-        self.Rmail_user = 'Alan.YF.Liu@auo.com'
-        self.Cmail_user = 'Alan.YF.Liu@auo.com'
+        self.Rmail_user = 'Alan.YF.Liu@gmail.com'
+        self.Cmail_user = 'Alan.YF.Liu@gmail.com'
         
     def send(self, message: str):
         ManualSend_01 = {
@@ -136,7 +136,3 @@ class customMessageAutoMail(auto_mail):
         response_01 = self.client.service.ManualSend_07(**ManualSend_01)
         print('Send custom message mail successful or not: ' + str(response_01))
 
-
-if __name__ == '__main__':
-
-    auto_mail().sendReport('./report_production/Weekly_report.pptx', messageForTableType='Weekly')
