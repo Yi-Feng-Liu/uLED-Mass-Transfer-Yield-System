@@ -47,11 +47,11 @@ def getFileAndTime(path1: str, path2=None):
     
 def getLightOnResult(sheetIDls):
     sftp_client, directory_list= connectSSH(
-        hostname="L4AFLS01", 
+        hostname="hostname", 
         port=22, 
-        username="wma", 
-        password="wma", 
-        path='/home/nfs/ledimg/UMAOI100/LUMIMG/',
+        username="username", 
+        password="password", 
+        path='/path/of/data/',
         endswith="_report.csv"
     )
     
@@ -79,11 +79,11 @@ def getLightOnResult(sheetIDls):
             img_path = f'/home/nfs/ledimg/UMAOI100/LUMIMG/{the_up_to_date_folder}/Result/'
             imgls = [file for file in sftp_client.listdir(img_path) if file.endswith(".bmp") if file.startswith("DefectMap") or file.startswith("ResultForm")]
 
-            local_path = '.\\report_production\\'
+            local_path = './report_production/'
             for img in imgls:
                 sftp_client.get(f"{img_path+img}", f"{local_path+img}")
                 imgName = local_path+img
-                imgName = imgName.split("\\")[-1]
+                imgName = imgName.split("/")[-1]
                 os.replace(local_path+img, f"{local_path + sheetID}_{imgName}")
             
             
