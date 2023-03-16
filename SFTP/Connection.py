@@ -55,36 +55,53 @@ def getLightOnResult(sheetIDls):
         endswith="_report.csv"
     )
     
+      found_sheet = []
     for sheetID in sheetIDls:
-        folderls = []
-        otherFolder = []
-        
+        folderls = []   
         for i in directory_list:
             if i.split("_")[0] == 'LUM':
-                foledername = i.split("_")[1]
-                if foledername == sheetID:
+                foldername = i.split("_")[1]
+                if foldername == sheetID:
                     folderls.append(i)
-
-            if i.split("_")[0] != 'LUM':
-                if i.split("_")[0] == sheetID:
-                    otherFolder.append(i)
+                    found_sheet.append(sheetID)
             else:
                 continue
-
-        total_folder = folderls + otherFolder
-        if len(total_folder) != 0:
-            total_folder = sorted(total_folder)
-     
+        
+        total_folder = folderls
+        total_folder = sorted(total_folder)
+        # print(total_folder)
+        if len(total_folder) == 0:
+            logging.warning(f"No correspong sheet id {sheetID} of image")
+            
+        else:
             the_up_to_date_folder = total_folder[-1]
+            # print(the_up_to_date_folder)
             img_path = f'/home/nfs/ledimg/UMAOI100/LUMIMG/{the_up_to_date_folder}/Result/'
-            imgls = [file for file in sftp_client.listdir(img_path) if file.endswith(".bmp") if file.startswith("DefectMap") or file.startswith("ResultForm")]
+            # print(img_path)
+            try:
+                imgls = [file for file in sftp_client.listdir(img_path) if file.endswith(".bmp") if file.startswith("DefectMap") or file.startswith("ResultForm")]
+                local_path = key_model_path_dict.get(MODEL)
+                for img in imgls:
+                    sftp_client.get(f"{img_path+img}", f"{local_path+img}")
+                    imgName = local_path+img
+                    imgName = imgName.split("/")[-1]
+                    os.replace(local_path+img, f"{local_path + sheetID}_{imgName}")
+            except Exception as E:
+                pass
+    try:
+        # take the element out and that not in intersection list.
+        if len(sheetIDls) == len(list(set(found_sheet))):
+            lost_img = []
+        # the len of found sheet greater than original sheet ID list is impossible
+        elif len(sheetIDls) > len(list(set(found_sheet))):
+            lost_img = []
+            for i in range(len(list(set(found_sheet)))):
+                if list(set(found_sheet))[i] not in sheet_list:
+                    lost_img.append(i)
+    except Exception as E:
+        logging.warning(f"Connection.py at line 116 had warning {E}")
 
-            local_path = './report_production/'
-            for img in imgls:
-                sftp_client.get(f"{img_path+img}", f"{local_path+img}")
-                imgName = local_path+img
-                imgName = imgName.split("/")[-1]
-                os.replace(local_path+img, f"{local_path + sheetID}_{imgName}")
+    return lost_img
             
             
     
