@@ -44,25 +44,6 @@ class TableType():
             'CRAPL':'CO-R-AOI Plasma', 
             'TNAB2':'TFT-M-AOI Shiping',
             'TNABO':'TFT-M-AOI Bonding',
-            'TNACL':'TFT-M-AOI Clean',
-            'TNLAT':'TFT-M-light ATC',
-            'TNLBO':'TFT-M-light Bonding',
-            'TNLCL':'TFT-M-light CLN for Ship',
-            'TNLLA':'TFT-M-light Laser cut',
-            'TNLPL':'TFT-M-light Plasma',
-            'TRADE':'TFT-R-AOI Debond',
-            'TRARE':'TFT-R-AOI Repair-Bond',
-            'TRLAG':'TFT-R-light Aging',
-            'TRLLM':'TFT-R-light LSMT',
-            'TRLRE':'TFT-R-light Repair-Bond',
-            'TNOCL': 'TNOCL',
-            'TROCL': 'TROCL',
-            'UM-BON': 'UM-BON',
-            'UM-CLN': 'UM-CLN',
-            'UM-OVE': 'UM-OVE',
-            'UM-STA': 'UM-STA',
-            'SHIP' : 'SHIP',
-            'FNSHIP': 'FNSHIP'
         }
         self.needSkipOPIDls = ['CNAPL', 'CRAPL', 'UM-BON', 'UM-CLN', 'UM-OVE', 'UM-OVE', 'SHIP', 'FNSHIP', 'UM-AOI', 'MDBUFFER']
         self.RGB_ls = {
