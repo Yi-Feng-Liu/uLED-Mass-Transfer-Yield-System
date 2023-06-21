@@ -2,60 +2,51 @@ import paramiko
 from datetime import datetime
 from glob import glob
 import os
+import logging
 
 
-def connectSSH(hostname: str, port: int, username: str, password: str, path: str, path2: str|None=None, endswith:str=None):
+def connectSSH(hostname: str, port: int, username: str, password: str, path: str):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(hostname=hostname, port=port, username=username, password=password)
     sftp_client = ssh.open_sftp() 
-
     directory_list = sftp_client.listdir(path)
-
-    # filteredList = [path + file for file in directory_list if file.endswith(endswith)]
-
-    # if path2 != None:
-    #     directory_list2 = sftp_client.listdir(path2)
-    #     filteredList2 = [path2 + file for file in directory_list2 if file.endswith(endswith)]
-    #     totalFileList = filteredList + filteredList2
-    #     totalFileTimeList = [datetime.fromtimestamp(sftp_client.stat(i).st_mtime) for i in totalFileList]
-    #     return sftp_client, directory_list, totalFileList, totalFileTimeList
-
-    # fileTimeList = [datetime.fromtimestamp(sftp_client.stat(i).st_mtime) for i in directory_list]
-
-    return sftp_client, directory_list, #fileTimeList, fileTimeList
+    return sftp_client, directory_list
 
 
-def getLastBackUpTime(path="./programe/backuplog.txt"):
-    lastTime = []
-    with open(path, "r", encoding="utf-8") as f:
-        for _, line in enumerate(f):
-            lastTime.append(line.split("[")[0])
-    lastTIME = lastTime[-1].replace('/', '-').strip() # Remove Trailing Spaces
-    return datetime.fromisoformat(lastTIME)
-
-
-def getFileAndTime(path1: str, path2=None):
-    files = glob(path1)
-    filesTimels = [datetime.fromtimestamp(os.stat(i).st_mtime) for i in files]
-    if path2 != None:
-        files2 = glob(path2)
-        totalFilels = files + files2
-        totalFileTimels = [datetime.fromtimestamp(os.stat(i).st_mtime) for i in totalFilels]
-        return totalFilels, totalFileTimels
-    return files, filesTimels
+def getFileAndTime(*args:str):
+    """Input the file paths to extract. 
     
-def getLightOnResult(sheetIDls):
+    args support glob path form
+
+    Returns:
+        list: all_file
+        list: all_file_time_ls
+    """
+    all_file = []
+    all_file_time_ls = []
+    for i in args:
+        files = glob(i)
+        filesTimels = [datetime.fromtimestamp(os.stat(i).st_mtime) for i in files]
+        all_file += files
+        all_file_time_ls += filesTimels
+    return all_file, all_file_time_ls
+
+    
+def getLightOnResult(sheetIDls, MODEL):
     sftp_client, directory_list= connectSSH(
-        hostname="hostname", 
+        hostname="L4AFLS01", 
         port=22, 
-        username="username", 
-        password="password", 
-        path='/path/of/data/',
-        endswith="_report.csv"
+        username="wma", 
+        password="wma", 
+        path='/home/nfs/ledimg/UMAOI100/LUMIMG/',
     )
-    
-      found_sheet = []
+    key_model_path_dict = {
+        13.6: './report_production/13.6/',
+        16.1: './report_production/16.1/',
+        17.3: './report_production/17.3/'
+    }
+    found_sheet = []
     for sheetID in sheetIDls:
         folderls = []   
         for i in directory_list:
@@ -87,29 +78,24 @@ def getLightOnResult(sheetIDls):
                     imgName = imgName.split("/")[-1]
                     os.replace(local_path+img, f"{local_path + sheetID}_{imgName}")
             except Exception as E:
-                pass
+                logging.warning(f"Line 91 has erroe \n str{E} \nin Connection.py")
     try:
         # take the element out and that not in intersection list.
-        if len(sheetIDls) == len(list(set(found_sheet))):
-            lost_img = []
         # the len of found sheet greater than original sheet ID list is impossible
-        elif len(sheetIDls) > len(list(set(found_sheet))):
-            lost_img = []
-            for i in range(len(list(set(found_sheet)))):
-                if list(set(found_sheet))[i] not in sheet_list:
+        lost_img = []
+        found = list(dict.fromkeys(found_sheet))
+        total_sheet = sheetIDls
+        if len(found) <= len(total_sheet) and len(found) > 0:
+            for i in total_sheet:
+                if i not in found:
                     lost_img.append(i)
+        if len(list(set(found_sheet))) == 0:
+            lost_img = sheetIDls      
     except Exception as E:
         logging.warning(f"Connection.py at line 116 had warning {E}")
 
     return lost_img
-            
-            
     
-
-if __name__ == "__main__":
-
-    local_img_ls = getLightOnResult("9702K1")
-    # print(local_img_ls)
     
   
 
