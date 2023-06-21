@@ -21,39 +21,39 @@ class timeTracking():
         return last_time 
 
 
-    def filter_data_follow_CT(self, datalist: list, dataCTlist: list, key_name: str, now):
-        print("[INFO] Filter data from Create Time...")
+    def get_filter_data_ls(self,reocrd_time_json_file:str, datalist: list, dataCTlist: list, key_name: str, now):
+        filtered_data_list = []
+        if not os.path.exists(reocrd_time_json_file):
+            self.start_time(reocrd_time_json_file, key_name, recordtime=now)
+            initial_time = now.replace(year=2022, month=10, day=1, hour=0, minute=0, second=0)
+            for file, filetime in zip(datalist, dataCTlist):
+                if filetime < now and filetime > initial_time:
+                    filtered_data_list.append(file)
+            return filtered_data_list
+        else:
+            last_time = self.read_last_record_time(reocrd_time_json_file, key_name)
+            self.start_time(reocrd_time_json_file, key_name, recordtime=now)
+            for file, filetime in zip(datalist, dataCTlist):
+                if filetime < now and filetime > last_time:
+                    filtered_data_list.append(file)
+            return filtered_data_list
+
+
+    def filter_data_follow_CT(self, datalist:list, dataCTlist:list, key_name:str, now):
+        print(f"[INFO] Filter {key_name} data from Create Time...")
         filtered_data_list = []
         if key_name=='Bonding':
-            if not os.path.exists('Run_Bond_TimingRecord.json'):
-                self.start_time('Run_Bond_TimingRecord.json', key_name, recordtime=now)
-                initial_time = now.replace(year=2022, month=10, day=1, hour=0, minute=0, second=0)
-                for file, filetime in zip(datalist, dataCTlist):
-                    if filetime < now and filetime > initial_time:
-                        filtered_data_list.append(file)
-                return filtered_data_list
-            else:
-                last_time = self.read_last_record_time('Run_Bond_TimingRecord.json', key_name)
-                self.start_time('Run_Bond_TimingRecord.json', key_name, recordtime=now)
-                for file, filetime in zip(datalist, dataCTlist):
-                    if filetime < now and filetime > last_time:
-                        filtered_data_list.append(file)
-                return filtered_data_list
+            filtered_data_list = self.get_filter_data_ls(
+                'Run_Bond_TimingRecord.json', datalist, dataCTlist, key_name, now
+            )
 
-        if key_name=='AOI':
-            if not os.path.exists('Run_AOI_TimingRecord.json'):
-                self.start_time('Run_AOI_TimingRecord.json', key_name, recordtime=now)
-                initial_time = now.replace(year=2022, month=10, day=1, hour=0, minute=0, second=0)
-                for file, filetime in zip(datalist, dataCTlist):
-                    if filetime < now and filetime > initial_time:
-                        filtered_data_list.append(file)
-                return filtered_data_list
-            else:
-                last_time = self.read_last_record_time('Run_AOI_TimingRecord.json', key_name)
-                self.start_time('Run_AOI_TimingRecord.json', key_name, recordtime=now)
-                for file, filetime in zip(datalist, dataCTlist):
-                    if filetime < now and filetime > last_time:
-                        filtered_data_list.append(file)
-                return filtered_data_list
+        elif key_name=='AOI':
+            filtered_data_list = self.get_filter_data_ls(
+                'Run_AOI_TimingRecord.json', datalist, dataCTlist, key_name, now
+            )
 
-      
+        elif key_name=='Past_AOI':
+            filtered_data_list = self.get_filter_data_ls(
+                'Run_Past_AOI_TimingRecord.json', datalist, dataCTlist, key_name, now
+            )
+        return filtered_data_list
