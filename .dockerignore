@@ -1,0 +1,5 @@
+*
+!pip.conf
+!requirements.txt
+!.ssh
+!apt.conf
