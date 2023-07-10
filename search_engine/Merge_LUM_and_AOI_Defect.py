@@ -211,6 +211,7 @@ class Merge_LUM_and_AOI_Defect():
         """
         
         self.TFT_time_df = self.compare_createTime(df_aoi) 
+        self.TFT_time_df['OPID'] = self.TFT_time_df['CreateTime'] + '_' + self.TFT_time_df['OPID']
         if isinstance(self.TFT_time_df, type(None)):
             self.TFT_time_df = pd.DataFrame()
         
@@ -282,9 +283,10 @@ class Merge_LUM_and_AOI_Defect():
             defect_df1 = defect_df1.dropna(subset=['Luminance'])
             
             defect_df1['CK'] = 1
+            defect_df1['OPID'] = defect_df1['CreateTime'] + '_' + defect_df1['OPID']
             defect_df1_cols = defect_df1.columns.to_list()
             defect_df1_cols.remove('CK')
-            
+                       
             defect_df1_pivot = pd.pivot_table(defect_df1, values='CK' ,index=defect_df1_cols, columns=['OPID']).reset_index()
             LUM_OPID_ls = list(dict.fromkeys(defect_df1_pivot['OPID'].tolist()))
             defect_df1_pivot.drop(['OPID'], axis=1, inplace=True)
@@ -315,19 +317,53 @@ class Merge_LUM_and_AOI_Defect():
                   
             # append OPID list and group them      
             standard_squence = ['BO', 'DE', 'RE']
-            for ss in standard_squence:
-                for LUM_OPID in LUM_OPID_ls:
-                    if LUM_OPID.endswith(ss):
-                        fixed_col.append(LUM_OPID)
-                        for AOI_OPID in AOI_OPID_ls:
-                            if AOI_OPID[-2:] == LUM_OPID[-2:]:
-                                fixed_col.append(AOI_OPID)
-                                fixed_col.append(AOI_OPID + '_MAP')
-                        
-            defect_df1_group = defect_df1_group[fixed_col]
+            OPID_ls_sorted = []
+            addition_lum_DE = []
+            addition_lum_RE = []
+            addition_aoi_DE = []
+            addition_aoi_RE = []
             
+            for ss in standard_squence:
+                lum_opid_appear_cnt = 0
+                for lum_opid in sorted(LUM_OPID_ls):
+                    if lum_opid.endswith(ss):
+                        if lum_opid_appear_cnt < 1:
+                            OPID_ls_sorted.append(lum_opid)
+                            lum_opid_appear_cnt+=1
+                        else:
+                            if lum_opid.endswith('DE'):
+                                addition_lum_DE.append(lum_opid)
+                            elif lum_opid.endswith('RE'):
+                                addition_lum_RE.append(lum_opid)
+                
+                aoi_opid_appear_cnt = 0
+                for aoi_opid in sorted(AOI_OPID_ls):
+                    if aoi_opid.endswith(ss):
+                        if aoi_opid_appear_cnt < 1:
+                            OPID_ls_sorted.append(aoi_opid)
+                            OPID_ls_sorted.append(aoi_opid + '_MAP')
+                            aoi_opid_appear_cnt+=1
+                        else:
+                            if aoi_opid.endswith('DE'):
+                                addition_aoi_DE.append(aoi_opid)
+                            elif aoi_opid.endswith('RE'):
+                                addition_aoi_RE.append(aoi_opid)
+            
+            
+            for lum_opid_DE, lum_opid_RE, aoi_opid_DE, aoi_opid_RE in zip(
+                addition_lum_DE, addition_lum_RE, addition_aoi_DE, addition_aoi_RE
+            ):
+                OPID_ls_sorted.append(lum_opid_DE)
+                OPID_ls_sorted.append(aoi_opid_DE)
+                OPID_ls_sorted.append(aoi_opid_DE + '_MAP')
+                OPID_ls_sorted.append(lum_opid_RE)
+                OPID_ls_sorted.append(aoi_opid_RE)
+                OPID_ls_sorted.append(aoi_opid_RE + '_MAP') 
+            
+                                       
+            defect_df1_group = defect_df1_group[fixed_col + OPID_ls_sorted]
             # 最後一個AOI站點的原因
-            defect_df1_group['Failure Analysis'] = defect_df1_group[fixed_col[-2]]
+            defect_df1_group['Failure Analysis'] = defect_df1_group[(fixed_col + OPID_ls_sorted)[-2]]
             defect_df1_group['Solution'] = ''
             defect_df1_group['Short term Action'] = ''
             
