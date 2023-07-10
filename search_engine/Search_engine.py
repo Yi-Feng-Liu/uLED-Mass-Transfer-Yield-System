@@ -177,7 +177,7 @@ with st.container():
                             df.to_excel(writer, sheet_name='Sheet1', index=False)
 
                             # Get the xlsxwriter workbook and worksheet objects.
-                            workbook  = writer.book
+                            workbook = writer.book
 
                             worksheet = writer.sheets['Sheet1']
                             cell_format = workbook.add_format({'align': 'center'})
@@ -217,7 +217,7 @@ with st.container():
                             # 設定個別的 MAP col 寬度
                             for col_index in map_col_index:
                                 worksheet.set_column(f'{chr(65+col_index)}:{chr(65+col_index)}', 25, cell_format)
-                                
+                            
                             # 要做autofit的格子
                             # worksheet.autofit()
                             # worksheet.set_column(f'{chr(65+map_col_num)}:{chr(65+map_col_num)}', 25, cell_format)
@@ -225,17 +225,24 @@ with st.container():
                             # 建立單站的 Summary
                             st.session_state['df_lum_combine_data_result']['CK'] = 1
                             aoi_summary_ls = ['ABO', 'ADE', 'ARE']
-                            LED_TYPE_ls = ['R', 'G', 'B']
-                            for df_col in df.columns.tolist():
+                            decnt = 0
+                            recnt = 0
+                            cols = df.columns.tolist()
+                            light_on_cols = []
+                            for j in range(len(cols)):
+                                # 用來製作 Light on history
+                                if 'L' in cols[j] and cols[j] != 'LED_TYPE':
+                                    light_on_cols.append(cols[j])
+                                    
                                 for aoi_opid in aoi_summary_ls:
-                                    if df_col.endswith(aoi_opid):
-                                        table_temp = pd.pivot_table(st.session_state['df_lum_combine_data_result'], values='CK', index=['LED_TYPE'], columns=[df_col], aggfunc=np.sum)
+                                    if cols[j].endswith(aoi_opid):
+                                        table_temp = pd.pivot_table(st.session_state['df_lum_combine_data_result'], values='CK', index=['LED_TYPE'], columns=[cols[j]], aggfunc=np.sum)
                                         table_temp = table_temp.reset_index()
                                         table_temp = table_temp.fillna(0)
                                         table_temp['總計'] = 0
                            
-                                        # 加總每個原因的個數並在每個 AOI的 col 最底下加上 row name(總計)
-                                        col_list = list(dict.fromkeys(st.session_state['df_lum_combine_data_result'][df_col]))
+                                        # 加總每個原因的個數並在每個 AOI的 cols 最底下加上 row name(總計)
+                                        col_list = list(dict.fromkeys(st.session_state['df_lum_combine_data_result'][cols[j]]))
                                         for i in col_list:
                                             table_temp['總計'] += table_temp[i]
                                         sum_list = ['總計']
@@ -246,11 +253,11 @@ with st.container():
                                                 
                                         table_temp.loc[len(table_temp.index)] = sum_list
                                         
-                                        filter_AB10_df = st.session_state['df_lum_combine_data_result']
+                                        origin_df = st.session_state['df_lum_combine_data_result']
                                         
                                         # AB10 不計算
-                                        if 'TNABO' in filter_AB10_df.columns.tolist():
-                                            filter_AB10_df = filter_AB10_df[filter_AB10_df['TNABO'] != 'Rotate']
+                                        filter_AB10_df = origin_df[origin_df != 'Rotate']
+                                            
                                             
                                         def get_BGR_info(df:pd.DataFrame, light_on_OPID:str) -> pd.Series:
                                             LED_TYPE_ls = ['B', 'G', 'R']
@@ -264,122 +271,244 @@ with st.container():
                                             total = sum(cnt_each_type_ls)
                                             cnt_each_type_ls.append(total)
                                             cnt_each_type_series = pd.Series(cnt_each_type_ls)
-                                            return cnt_each_type_series    
+                                            return cnt_each_type_series
                                         
+                                        
+                                        def get_AOI_LUM_info(df:pd.DataFrame, LUM_OPID:str, AOI_OPID:str) -> pd.DataFrame:
+                                            info_df = pd.pivot_table(df[df[LUM_OPID] != ''], values='CK', index=['LED_TYPE'], columns=[AOI_OPID], aggfunc=np.sum)
+                                            info_df = info_df.reset_index()
+                                            info_df = info_df.fillna(0)
+                                            info_df['總暗點數'] = 0
+
+                                            # 加總每個原因的個數並在每個 AOI的 cols 最底下加上 row name(總計)
+                                            df[AOI_OPID].fillna('', inplace=True)
+                                            col_list = list(dict.fromkeys(df[AOI_OPID].tolist()))
+                                            items = np.delete(pd.Series(col_list), np.where(pd.Series(col_list)==''))
+                                            
+                                            for k in items:
+                                                info_df['總暗點數'] += info_df[k]
+                                            sum_list = ['總計']
+                                            
+                                            for pivot_col in info_df.columns:
+                                                if pivot_col != 'LED_TYPE':
+                                                    sum_list.append(sum(info_df[pivot_col]))
+                                            
+                                            info_df.loc[len(info_df.index)] = sum_list   
+                                            return info_df
+                                        
+                                        # 以 暗點 為出發點
                                         # 計算 成功(前一站->當站) 新增(前一站->當站) 失敗(前一站->當站)   
                                         dark_point = 'LED 亮/暗(輝度)'
                                         if aoi_opid == 'ADE':
-                                            # 需扣除兩站都為 LED已上件 的數量
-                                            # 扣除不用repair的才是真正要處理的
-                                            # both_LED_df = filter_AB10_df[
-                                            #     (filter_AB10_df['TNABO'] == '缺晶/Not Found') & (filter_AB10_df['TRADE'] == '缺晶/Not Found')
-                                            # ]
-                                            # both_LED_cnt = len(both_LED_df['TRLRE'].tolist())
-                                            # del both_LED_df
-                                            
                                             # 0. Total
-                                            DE_light_on_dark_point_cnt = len(filter_AB10_df[(filter_AB10_df['TRLDE'] == dark_point)].index)
+                                            RGB_total_cnt_ls = get_BGR_info(filter_AB10_df[(filter_AB10_df[cols[j-1]] == dark_point)], cols[j-1])
                                             
-                                            RGB_total_cnt_ls = get_BGR_info(filter_AB10_df[(filter_AB10_df['TRLDE'] == dark_point)], 'TRLDE')
+                                            info = get_AOI_LUM_info(filter_AB10_df, LUM_OPID=cols[j-1], AOI_OPID=cols[j])
                                             
-                                            if 'TNLBO' in filter_AB10_df.columns.tolist():
-                                                BO_light_on_dark_point_cnt = len(filter_AB10_df[(filter_AB10_df['TNLBO'] == dark_point)].index)
+                                            # 檢查 第一個站點 是否為TNLBO
+                                            if 'TNLBO' in cols[cols.index('Pixel_Y')+1]:
                                                 # 1. 成功 (暗 -> 暗)
                                                 succcess_df = filter_AB10_df[
-                                                    (filter_AB10_df['TNLBO'] == dark_point) & (filter_AB10_df['TNABO'] == 'LED已上件') & (filter_AB10_df['TRLDE'] == dark_point) & (filter_AB10_df['TRADE'] != 'LED已上件') 
+                                                    # light in
+                                                    (filter_AB10_df[cols[j-4]] == dark_point) & 
+                                                    # AOI
+                                                    (filter_AB10_df[cols[j-3]] == 'LED已上件') & 
+                                                    # light in
+                                                    (filter_AB10_df[cols[j-1]] == dark_point) & 
+                                                    # AOI
+                                                    (filter_AB10_df[cols[j]] == '缺晶/Not Found') 
                                                 ]
-                                                RGB_success_cnt_ls = get_BGR_info(succcess_df, 'TRLDE')
+                                                RGB_success_cnt_ls = get_BGR_info(succcess_df, cols[j-1])
                                                 del succcess_df
                                                 
-                                                # 2. 新增 (空白->暗 (有暗點))
+                                                # 2. 新增 (空白->暗 (暗點))
                                                 added_dot_df = filter_AB10_df[
-                                                    (filter_AB10_df['TNLBO'] == '') & (filter_AB10_df['TRLDE'] == dark_point)
+                                                    (filter_AB10_df[cols[j-4]] == '') & 
+                                                    (filter_AB10_df[cols[j-1]] == dark_point)
                                                 ]
-                                                RGB_added_cnt_ls = get_BGR_info(added_dot_df, 'TRLDE')
+                                                RGB_added_cnt_ls = get_BGR_info(added_dot_df, cols[j-1])
                                                 del added_dot_df
                                                 
                                                 # 3. 失敗 (有LED -> 有LED)
                                                 failed_df = filter_AB10_df[
-                                                    (filter_AB10_df['TNLBO'] == dark_point) & (filter_AB10_df['TNABO'] == 'LED已上件') & (filter_AB10_df['TRLDE'] == dark_point) & (filter_AB10_df['TRADE'] == 'LED已上件')
+                                                    (filter_AB10_df[cols[j-4]] == dark_point) & 
+                                                    (filter_AB10_df[cols[j-3]] == 'LED已上件') & 
+                                                    (filter_AB10_df[cols[j-1]] == dark_point) & 
+                                                    (filter_AB10_df[cols[j-1]] == 'LED已上件')
                                                 ]
                                                 
-                                                RGB_failed_cnt_ls = get_BGR_info(failed_df, 'TRLDE')
+                                                RGB_failed_cnt_ls = get_BGR_info(failed_df, cols[j-1])
                                                 del failed_df
                                                 
                                             else:
                                                 RGB_success_cnt_ls, RGB_added_cnt_ls, RGB_failed_cnt_ls = 0, 0, 0
-                                                
-                                            debond_info = pd.DataFrame()
-                                            debond_info['LED_TYPE'] = table_temp['LED_TYPE']
-                                            debond_info['總暗點數'] = RGB_total_cnt_ls
-                                            debond_info['成功'] = RGB_success_cnt_ls
-                                            debond_info['失敗'] = RGB_failed_cnt_ls
-                                            debond_info['新增'] = RGB_added_cnt_ls
-                                            debond_info['Debond成功率'] = (debond_info['成功']/(debond_info['成功'] + debond_info['失敗']))*100
-                                            merge_table_temp = table_temp.merge(debond_info, how='right', on='LED_TYPE')
-                                    
+                                            
+                                            De_info = pd.DataFrame()
+                                            De_info['LED_TYPE'] = ['B', 'G', 'R', '總計']
+                                            De_info['成功'] = RGB_success_cnt_ls
+                                            De_info['失敗'] = RGB_failed_cnt_ls
+                                            De_info['新增'] = RGB_added_cnt_ls
+                                            De_info['Debond成功率'] = (De_info['成功']/(De_info['成功'] + De_info['失敗']))*100
+                                            De_info = info.merge(De_info, on='LED_TYPE', how='right')
+                                            De_info.fillna(0, inplace=True)
+                                            
+                                            table_temp.insert(0, f"{cols[j]} AOI Info", "")
+                                            De_info.insert(0, f"{cols[j-1]} Light on Info", "")
+                                            De_info.insert(4, "", "")
+                                            
+                                            if 'Debond_summary' not in workbook.sheetnames.keys():
+                                                table_temp.to_excel(writer, 'Debond_summary', index=False)
+                                                De_info.to_excel(writer, 'Debond_summary', index=False, startrow=6)
+                                            else:
+                                                table_temp.to_excel(writer, 'Debond_summary', index=False, startrow=11 + int((j/4)))
+                                                De_info.to_excel(writer, 'Debond_summary', index=False, startrow=17 + int((j/4)))
+                                            
+                                            if 'light_on_History' not in workbook.sheetnames.keys():
+                                                De_info.to_excel(writer, 'light_on_History', index=False, startrow=j)
+                                            else:
+                                                De_info.to_excel(writer, 'light_on_History', index=False, startrow=j+(decnt*10))
+                                            decnt += 1
+                                                    
                                         elif aoi_opid == 'ARE':
-                                            # 以 Repair 為出發點
                                             # 計算 成功 (暗->亮) 新增(空白->暗) 失敗(暗->暗)
-                                            
                                             # 0. Total
-                                            RE_light_on_dark_point_cnt = len(filter_AB10_df[(filter_AB10_df['TRLRE'] == dark_point)].index)
-                                            RGB_total_cnt_ls = get_BGR_info(filter_AB10_df[(filter_AB10_df['TRLRE'] == dark_point)], 'TRLRE')
+                                            RGB_total_cnt_ls = get_BGR_info(filter_AB10_df[(filter_AB10_df[cols[j-1]] == dark_point)], cols[j-1])
                                             
-                                            # # 需扣除兩站都為 LED已上件 的數量
-                                            # # 扣除不用repair的才是真正要處理的
-                                            # both_LED_df = filter_AB10_df[
-                                            #     (filter_AB10_df['TRADE'] == 'LED已上件') & (filter_AB10_df['TRARE'] == 'LED已上件')
-                                            # ]
-                                            # both_LED_cnt = len(both_LED_df['TRLRE'].tolist())
-                                            # del both_LED_df
+                                            info = get_AOI_LUM_info(filter_AB10_df, LUM_OPID=cols[j-1], AOI_OPID=cols[j])
                                             
-                                            # actual_process_cnt = RE_light_on_dark_point_cnt - both_LED_cnt
-                                            
-                                            if 'TRLDE' in filter_AB10_df.columns.tolist():
-                                                DE_light_on_dark_point_cnt = len(filter_AB10_df[(filter_AB10_df['TRLDE'] == dark_point)].index)
+                                            # Debond lighr on --> cols[j-4]
+                                            if cols[j-4] in filter_AB10_df.columns.tolist():
                                                 # 1. 成功 (暗->亮 (無暗點))
                                                 succcess_df = filter_AB10_df[
-                                                    (filter_AB10_df['TRLDE'] == dark_point) & (filter_AB10_df['TRLRE'] == '')
+                                                    (filter_AB10_df[cols[j-4]] == dark_point) & 
+                                                    (filter_AB10_df[cols[j-1]] == '')
                                                 ]
-                                                RGB_success_cnt_ls = get_BGR_info(succcess_df, 'TRLRE')
+                                                RGB_success_cnt_ls = get_BGR_info(succcess_df, cols[j-1])
                                                 del succcess_df
                                                 
                                                 # 2. 新增 (空白->暗 (有暗點))
-                                                added_dot_df = filter_AB10_df[(filter_AB10_df['TRLDE'] == '') & (filter_AB10_df['TRLRE'] == dark_point)]
-                                                RGB_added_cnt_ls = get_BGR_info(added_dot_df, 'TRLRE')
+                                                added_dot_df = filter_AB10_df[
+                                                    (filter_AB10_df[cols[j-4]] == '') & 
+                                                    (filter_AB10_df[cols[j-1]] == dark_point)
+                                                ]
+                                                RGB_added_cnt_ls = get_BGR_info(added_dot_df, cols[j-1])
                                                 del added_dot_df
                                                 
                                                 # 3. 失敗 (暗 (有暗點)->暗 (有暗點))
-                                                failed_df = filter_AB10_df[(filter_AB10_df['TRLDE'] == dark_point) & (filter_AB10_df['TRLRE'] == dark_point)]
+                                                failed_df = filter_AB10_df[
+                                                    (filter_AB10_df[cols[j-4]] == dark_point) & 
+                                                    (filter_AB10_df[cols[j-1]] == dark_point)
+                                                ]
                                             
-                                                RGB_failed_cnt_ls = get_BGR_info(failed_df, 'TRLDE')
+                                                RGB_failed_cnt_ls = get_BGR_info(failed_df, cols[j-4])
                                                 del failed_df
                                             else:
                                                 RGB_success_cnt_ls, RGB_added_cnt_ls, RGB_failed_cnt_ls = 0, 0, 0
-                                                
-                                            repair_info = pd.DataFrame()
-                                            repair_info['LED_TYPE'] = table_temp['LED_TYPE']
-                                            repair_info['總暗點數'] = RGB_total_cnt_ls
-                                            repair_info['成功'] = RGB_success_cnt_ls
-                                            repair_info['失敗'] = RGB_failed_cnt_ls
-                                            repair_info['新增'] = RGB_added_cnt_ls
-                                            repair_info['Repair成功率'] = (repair_info['成功']/(repair_info['成功']+repair_info['失敗']))*100
-                                            merge_table_temp = table_temp.merge(repair_info, how='right', on='LED_TYPE')
-                      
-                                        else:  
-                                            RGB_total_cnt_ls = get_BGR_info(filter_AB10_df[(filter_AB10_df['TNLBO'] == dark_point)], 'TNLBO')  
-                                            MB_info = pd.DataFrame()
-                                            MB_info['LED_TYPE'] = table_temp['LED_TYPE']
-                                            MB_info['總暗點數'] = RGB_total_cnt_ls
-                                            merge_table_temp = table_temp.merge(MB_info, how='right', on='LED_TYPE')
+                                            
+                                            Re_info = pd.DataFrame()
+                                            Re_info['LED_TYPE'] = ['B', 'G', 'R', '總計']
+                                            Re_info['成功'] = RGB_success_cnt_ls
+                                            Re_info['失敗'] = RGB_failed_cnt_ls
+                                            Re_info['新增'] = RGB_added_cnt_ls
+                                            Re_info['Repair成功率'] = (Re_info['成功']/(Re_info['成功']+Re_info['失敗']))*100
+                                            Re_info = info.merge(Re_info, on='LED_TYPE', how='right')
+                                            Re_info.fillna(0, inplace=True)
+                                            
+                                            table_temp.insert(0, f"{cols[j]} AOI Info", '')
+                                            Re_info.insert(0, f"{cols[j-1]} Light on Info", '')
+                                            Re_info.insert(4, "", "")
+                                            
+                                            if 'Repair_summary' not in workbook.sheetnames.keys():
+                                                table_temp.to_excel(writer, 'Repair_summary', index=False)
+                                                Re_info.to_excel(writer, 'Repair_summary', index=False, startrow=6)
+                                            else:
+                                                table_temp.to_excel(writer, 'Repair_summary', index=False, startrow=11+int(((j-1)/4)-1))
+                                                Re_info.to_excel(writer, 'Repair_summary', index=False, startrow=17+int(((j-1)/4)-1))
+                                            
+                                            if 'light_on_History' not in workbook.sheetnames.keys():
+                                                Re_info.to_excel(writer, 'light_on_History', index=False, startrow=j+4)
+                                            else:
+                                                Re_info.to_excel(writer, 'light_on_History', index=False, startrow=j+4+(recnt*10))   
+                                            recnt += 1
+                                            
+                                        else:
+                                            RGB_total_cnt_ls = get_BGR_info(filter_AB10_df[(filter_AB10_df[cols[j-1]] == dark_point)], cols[j-1])
+                                            MB_info = get_AOI_LUM_info(filter_AB10_df, LUM_OPID=cols[j-1], AOI_OPID=cols[j])
+                                   
+                                            table_temp.insert(0, f"{cols[j]} AOI Info", '')
+                                            MB_info.insert(0, f"{cols[j-1]} Light on Info", '')
+                                            MB_info.insert(4, '', '')
+                                            
+                                            
+                                            if 'light_on_History' not in workbook.sheetnames.keys():
+                                                MB_info.to_excel(writer, 'light_on_History', index=False)
+                                            
+                                            
+                                            if 'Mainbond_summary' not in workbook.sheetnames.keys():
+                                                table_temp.to_excel(writer, 'Mainbond_summary', index=False)
+                                                MB_info.to_excel(writer, 'Mainbond_summary', index=False, startrow=6)
+                                            else:
+                                                table_temp.to_excel(writer, 'Mainbond_summary', index=False, startrow=11 + int((j/3)))
+                                                MB_info.to_excel(writer, 'Mainbond_summary', index=False, startrow=17 + int((j/3)))
 
-                                        merge_table_temp.insert(0, "AOI Info", '')
-                                        spec_col_index = merge_table_temp.columns.tolist().index('總計')
-                                        merge_table_temp.insert(spec_col_index + 1, "Light-on Info", '')
-                                        merge_table_temp.to_excel(writer, sheet_name=df_col + '_summary', index=False)
+                                
+                            # make light on history dataframe
+                            # bo_cnt, de_cnt, re_cnt = 0, 0, 0
+                            # time_ls = ['Time']
+                            # index_cols = ['']
+                            # for light_col in light_on_cols:
+                            #     createTime = light_col.split('_')[0]
+                            #     time_ls.append(createTime)
+                                
+                            #     if light_col.endswith('BO'):
+                            #         bo_cnt += 1
+                            #         index_col = light_col.replace(createTime, str(bo_cnt))
+                                
+                            #     elif light_col.endswith('DE'):
+                            #         de_cnt += 1
+                            #         index_col = light_col.replace(createTime, str(de_cnt))
+                                
+                            #     else:
+                            #         re_cnt += 1
+                            #         index_col = light_col.replace(createTime, str(re_cnt))
+                                    
+                            #     index_cols.append(index_col)
+                            
+                            
+                            # def get_dark_point_cnt_each_col(df:pd.DataFrame) -> pd.Series:
+                            #     ok_ls = ['OK']
+                            #     ng_ls = ['NG']
+                            #     new_ls = ['New', 0]
+                            #     for origin_col in df.columns.tolist():
+                                    
+                            #         ok_df = df[df[origin_col] == '']
+                            #         okcnt = len(ok_df.index)
+                            #         ok_ls.append(okcnt)
+                                    
+                            #         ng_df = df[df[origin_col] != '']
+                            #         ngdnt = len(ng_df.index)
+                            #         ng_ls.append(ngdnt)
+                                   
+                            #     for i in range(2, len(ng_ls)):
+                            #         diff = ng_ls[i] - ng_ls[i-1]
+                            #         if diff <= 0:
+                            #             new_ls.append(0)
+                            #         elif diff > 0:
+                            #             new_ls.append(diff)
                                         
-                            # Close the Pandas Excel writer and output the Excel file to the buffer
+                            #     return pd.Series(ok_ls), pd.Series(ng_ls), pd.Series(new_ls) 
+                            
+                            # okls, ngls, newls = get_dark_point_cnt_each_col(df[light_on_cols])
+                            # data_ls = [time_ls, okls, ngls, newls]
+                            # light_on_his_df = pd.DataFrame(data=data_ls, columns=index_cols)
+                            # del light_on_cols
+                            # light_on_his_df.to_excel(writer, 'History', index=False)
+                            
+                            
+                            for worksheet in workbook.sheetnames.keys():
+                                sheet = writer.sheets[worksheet]
+                                sheet.autofit()
+                            
                             writer.close()
 
                             download2 = st.download_button(
@@ -392,22 +521,22 @@ with st.container():
                             
 
         if submitted_combine_data:
-            error_flag = False
-            for opid in OPID_aoi:
-                cnt = 0
-                for time in CreateTime_aoi:
-                    if opid in time:
-                        cnt += 1
-                if cnt > 1:
-                    error_flag = True
-                    break
+            # error_flag = False
+            # for opid in OPID_aoi:
+            #     cnt = 0
+            #     for time in CreateTime_aoi:
+            #         if opid in time:
+            #             cnt += 1
+            #     if cnt > 1:
+            #         error_flag = True
+            #         break
                 
             if OPID_lum == [] or CreateTime_lum == []:
                 st.error('請選擇欲查詢的 LUM 站點/時間')
             elif OPID_aoi == [] or CreateTime_aoi == []:
                 st.error('請選擇欲查詢的 AOI 站點/時間')
-            elif error_flag:
-                st.error('同一 AOI 站點時間不可重複')
+            # elif error_flag:
+            #     st.error('同一 AOI 站點時間不可重複')
             else:
                 with st.spinner('Searching...'):
                     df_lum_combine_data_col = df_lum_result.columns.tolist()
