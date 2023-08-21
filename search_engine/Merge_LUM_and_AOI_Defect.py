@@ -4,17 +4,18 @@ from pymongo import MongoClient
 import pickle
 import gridfs
 from bson import ObjectId
+import json
 
 
 
 class Merge_LUM_and_AOI_Defect():
-    """Write the Yield 2D array, inspection type, LED type, decfect coordinate to mongoDB.
-    """
+    """Merge Light_on's and AOI's dataframe from MongoDB."""
+    
     def __init__(self, SHEET_ID:str, key:str):
         super().__init__()
         
         # 判斷當前處理檔案的條件以及檢測條件
-        self.client = MongoClient('mongodb://wma:mamcb1@10.88.26.102:27017/?compressors=zlib')
+        self.client = MongoClient('mongodb://user:account@10.88.26.102:27017/?compressors=zlib')
         self.SHEET_ID = SHEET_ID # options
         self.Insepction_Type = key # options
         self.defect_df = pd.DataFrame()
@@ -24,27 +25,14 @@ class Merge_LUM_and_AOI_Defect():
         self.NG_TFT_Collection_name = 'COC2_AOI'
         self.NG_TFT_Collection_ng = 'COC2_AOI_INDEX'
         self.NG_TFT_Collection_arr = 'COC2_AOI_ARRAY'
-        self.defect_code_dict = {
-            'AB01': 'Particle',
-            'AB02': 'Tilt',
-            'AB03': 'Crack',
-            'AB04': 'shift',
-            'AB05': 'Defect Area',
-            'AB06': '缺晶/Not Found',
-            'AB07': 'LED色度',
-            'AB08': 'LED缺晶',
-            'AB09': 'LED亮/暗(輝度)',
-            'AB10': 'Rotate',
-            'AB11': 'PAD Loss',
-            'AB12': 'On Dot',
-            'AB13': 'Bright Dot',
-            'AB14': 'Multi',
-            'AB15': 'Edge',
-            'OK': 'LED已上件'
-        }
+    
+        config_file = open("./config.json", "rb")
+        config = json.load(config_file)
+        self.defect_code_dict = config['defect_code_dict']
+        self.opid_dict = config['opid_dict']
 
 
-    def search_NG_LUM_InsType_dataframe(self):
+    def search_NG_LUM_InsType_dataframe(self) -> pd.DataFrame:
         db = self.client[self.DB_name]
         collection = db['AOI_LUM_Defect_Coordinates']
         cursor = collection.find(
@@ -58,7 +46,7 @@ class Merge_LUM_and_AOI_Defect():
         return self.NG_LUM_InsType_df
     
     
-    def search_NG_LUM_defect_dataframe(self, OPID, CreateTime):
+    def search_NG_LUM_defect_dataframe(self, OPID, CreateTime) -> pd.DataFrame:
         self.OPID = OPID
         self.CreateTime = CreateTime # options
         db = self.client[self.DB_name]
@@ -73,7 +61,7 @@ class Merge_LUM_and_AOI_Defect():
         return self.NG_LUM_Defect_df
     
     
-    def get_NG_TFT_AOI_dataframe(self):
+    def get_NG_TFT_AOI_dataframe(self) -> pd.DataFrame:
         db = self.client[self.DB_name]
         collection = db[self.NG_TFT_Collection_name]
         self.fs = gridfs.GridFS(db, collection=self.NG_TFT_Collection_ng)
@@ -93,7 +81,7 @@ class Merge_LUM_and_AOI_Defect():
         return pd.DataFrame()
     
 
-    def search_NG_TFT_AOI_dataframe(self, OPID, CreateTime):
+    def search_NG_TFT_AOI_dataframe(self, OPID, CreateTime)->pd.DataFrame:
         db = self.client[self.DB_name]
         collection = db[self.NG_TFT_Collection_name]
         self.fs = gridfs.GridFS(db, collection=self.NG_TFT_Collection_ng)
@@ -111,33 +99,9 @@ class Merge_LUM_and_AOI_Defect():
             return self.NG_TFT_AOI_df_filter
         
         return pd.DataFrame()
-            
-        
-    # def get_SHEET_ID_list(self, NG_TFT_AOI_df:pd.DataFrame):
-    #     """Get the SHEET_ID of NG TFT AOI df
-    #     """
-    #     # 確認是否有這片SHEET ID
-    #     self.get_NG_TFT_AOI_dataframe()
-    #     self.TFT_AOI_SHEE_ID_list = []
-    #     if len(NG_TFT_AOI_df.index) != 0:
-    #         self.TFT_AOI_SHEE_ID_list = list(dict.fromkeys(NG_TFT_AOI_df['SHEET_ID'].tolist()))
-        
-        
-    # def get_sheet_id_dataframe(self, NG_TFT_AOI_df:pd.DataFrame):
-    #     """Step_1. Find correspong the dataframe from processing init info.
-    #     """
-    #     # self.get_SHEET_ID_list()
-    #     self.TFT_sheet_df = pd.DataFrame()
-    #     # 把 empty 的 opid 拿掉, 若有重測, 則選擇最新的資料
-    #     if len(self.TFT_AOI_SHEE_ID_list) != 0:
-    #         self.TFT_sheet_df = NG_TFT_AOI_df.sort_values(by=['CreateTime'], ascending=False)
-    #         print(self.TFT_sheet_df, '\n')
-            
-    #         print(self.TFT_sheet_df)
-    #     return self.TFT_sheet_df
                 
     
-    def get_bonding_dataframe(self):
+    def get_bonding_dataframe(self) -> pd.DataFrame:
         """Get bonding time from database MT and that collection BondSummaryTable
         
         The TFT createTime and processing createTime needs to in period of two bonding times.
@@ -169,7 +133,7 @@ class Merge_LUM_and_AOI_Defect():
         return bonding_df
         
         
-    def compare_createTime(self, df):
+    def compare_createTime(self, df) -> None:
         """Step_2. Compare the createTime from TFT_sheet_df, then get the TFT defect coordinates and image url.
         """
         
@@ -204,55 +168,59 @@ class Merge_LUM_and_AOI_Defect():
             else:
                 print('Not Found correspond sheet dataframe in line 891')
                 
-       
-    
-    def merge_LUM_AOI_dataframe(self, df_lum, df_aoi):
-        """Get image_url by TFT defect position and LUM defect coordinates
-        """
+                
+    def create_temp_tft_dataframe(self, led_type_list:list, AOI_OPID_list:list) -> pd.DataFrame:
+        """Get image url by TFT defect position and LUM defect coordinates"""
+        tft_x_coord, tft_y_coord, tft_img_link, tft_defect_code = [], [], [], []
+        OPID_ls = []
+        type_ls = []
+        # 每個 OPID 都有 ng_info_id, 所以得找出特定的 dataframe
+        for led_type in led_type_list:
+            for OPID in AOI_OPID_list:
+                OPID_df = self.TFT_time_df[(self.TFT_time_df['OPID']==OPID) & (self.TFT_time_df['LED_TYPE']==led_type)]
+                ng_series = OPID_df.ng_info_id.reset_index(drop=True)
+                for i in range(len(ng_series.index)):
+                    each_row_dict_id = ng_series[i]
+                    dic = self.fs.get(ObjectId(each_row_dict_id)).read()
+                    infos = pickle.loads(dic)
+                    for j in range(len(infos)):
+                        tft_x_coord.append(infos[j].get('LED_Index_X'))
+                        tft_y_coord.append(infos[j].get('LED_Index_Y'))
+                        tft_defect_code.append(infos[j].get('Defect Reciepe'))
+                        tft_img_link.append(infos[j].get('LINK'))
+                        OPID_ls.append(OPID) 
+                        type_ls.append(led_type)  
+                                 
+        temp_tft_df = pd.DataFrame(columns=['AOI_OPID', 'LED_TYPE', 'Pixel_X', 'Pixel_Y', 'MAP'])
+        temp_tft_df['AOI_OPID'] = OPID_ls
+        temp_tft_df['LED_TYPE'] = type_ls
+        temp_tft_df['Pixel_X'] = tft_x_coord
+        temp_tft_df['Pixel_Y'] = tft_y_coord
+        temp_tft_df['MAP'] = tft_img_link
+        temp_tft_df['Defect_Code'] = tft_defect_code
+        temp_tft_df = temp_tft_df[temp_tft_df['Defect_Code']!='BA0X']
         
+        # drop_duplicates 避免merge的時候 dataframe 被展開，導致對不上 defect 長度
+        temp_tft_df.drop_duplicates(subset=['AOI_OPID', 'LED_TYPE', 'Pixel_X', 'Pixel_Y'], keep='last', inplace=True)
+        return temp_tft_df
+        
+    
+    
+    def merge_LUM_AOI_dataframe(self, df_lum, df_aoi) -> pd.DataFrame:
         self.TFT_time_df = self.compare_createTime(df_aoi) 
         self.TFT_time_df['OPID'] = self.TFT_time_df['CreateTime'] + '_' + self.TFT_time_df['OPID']
         if isinstance(self.TFT_time_df, type(None)):
             self.TFT_time_df = pd.DataFrame()
         
-        tft_x_coord, tft_y_coord, tft_img_link, tft_defect_code = [], [], [], []
-        OPID_ls = []
-        type_ls = []
+        
         self.defect_df = df_lum.reset_index(drop=True).copy()
         
         if len(self.TFT_time_df.index) != 0:
             AOI_OPID_ls = list(dict.fromkeys(self.TFT_time_df['OPID'].tolist()))
             led_type_ls = list(dict.fromkeys(self.TFT_time_df['LED_TYPE'].tolist()))
             
-            # 每個 OPID 都有 ng_info_id, 所以得找出特定的 dataframe
-            for led_type in led_type_ls:
-                for OPID in AOI_OPID_ls:
-                    OPID_df = self.TFT_time_df[(self.TFT_time_df['OPID']==OPID) & (self.TFT_time_df['LED_TYPE']==led_type)]
-                    ng_series = OPID_df.ng_info_id.reset_index(drop=True)
-                    for i in range(len(ng_series.index)):
-                        each_row_dict_id = ng_series[i]
-                        dic = self.fs.get(ObjectId(each_row_dict_id)).read()
-                        infos = pickle.loads(dic)
-                        for j in range(len(infos)):
-                            tft_x_coord.append(infos[j].get('LED_Index_X'))
-                            tft_y_coord.append(infos[j].get('LED_Index_Y'))
-                            tft_defect_code.append(infos[j].get('Defect Reciepe'))
-                            tft_img_link.append(infos[j].get('LINK'))
-                            OPID_ls.append(OPID) 
-                            type_ls.append(led_type)  
-                                 
-            temp_tft_df = pd.DataFrame(columns=['AOI_OPID', 'LED_TYPE', 'Pixel_X', 'Pixel_Y', 'MAP'])
-            temp_tft_df['AOI_OPID'] = OPID_ls
-            temp_tft_df['LED_TYPE'] = type_ls
-            temp_tft_df['Pixel_X'] = tft_x_coord
-            temp_tft_df['Pixel_Y'] = tft_y_coord
-            temp_tft_df['MAP'] = tft_img_link
-            temp_tft_df['Defect_Code'] = tft_defect_code
-            temp_tft_df = temp_tft_df[temp_tft_df['Defect_Code']!='BA0X']
-            
-            # drop_duplicates 避免merge的時候 dataframe 被展開，導致對不上 defect 長度
-            temp_tft_df.drop_duplicates(subset=['AOI_OPID', 'LED_TYPE', 'Pixel_X', 'Pixel_Y'], keep='last', inplace=True)
-            
+            temp_tft_df = self.create_temp_tft_dataframe(led_type_ls, AOI_OPID_ls)
+
             new_cols = []
             for OPID in AOI_OPID_ls:
                 temp_tft_df[OPID + '_MAP'] = np.where(temp_tft_df['AOI_OPID']==OPID, temp_tft_df['MAP'], '')
@@ -283,13 +251,17 @@ class Merge_LUM_and_AOI_Defect():
             defect_df1 = defect_df1.dropna(subset=['Luminance'])
             
             defect_df1['CK'] = 1
+            # 將 OPID 加上時間標記
             defect_df1['OPID'] = defect_df1['CreateTime'] + '_' + defect_df1['OPID']
             defect_df1_cols = defect_df1.columns.to_list()
+            
             defect_df1_cols.remove('CK')
                        
             defect_df1_pivot = pd.pivot_table(defect_df1, values='CK' ,index=defect_df1_cols, columns=['OPID']).reset_index()
+            
             LUM_OPID_ls = list(dict.fromkeys(defect_df1_pivot['OPID'].tolist()))
             defect_df1_pivot.drop(['OPID'], axis=1, inplace=True)
+            
             defect_df1_pivot_cols = defect_df1_pivot.columns.to_list()
             
             
@@ -314,53 +286,69 @@ class Merge_LUM_and_AOI_Defect():
             fixed_col = []
             for col in range(fixed_col_limit+1):
                 fixed_col.append(defect_df1_group_col[col]) 
-                  
-            # append OPID list and group them      
-            standard_squence = ['BO', 'DE', 'RE']
+            
             OPID_ls_sorted = []
             addition_lum_DE = []
             addition_lum_RE = []
             addition_aoi_DE = []
             addition_aoi_RE = []
             
-            for ss in standard_squence:
+            
+            for ss in self.opid_dict.keys():
                 lum_opid_appear_cnt = 0
                 for lum_opid in sorted(LUM_OPID_ls):
                     if lum_opid.endswith(ss):
                         if lum_opid_appear_cnt < 1:
                             OPID_ls_sorted.append(lum_opid)
-                            lum_opid_appear_cnt+=1
+                            lum_opid_appear_cnt += 1
+                        
                         else:
-                            if lum_opid.endswith('DE'):
+                            if lum_opid.endswith(('DE', '+ACL')):
                                 addition_lum_DE.append(lum_opid)
-                            elif lum_opid.endswith('RE'):
+                            else:
+                                addition_lum_DE.append('')
+                                
+                            if lum_opid.endswith(('RE', '+ACL2')):
                                 addition_lum_RE.append(lum_opid)
-                
+                            else:
+                                addition_lum_RE.append('')
+
+                            
                 aoi_opid_appear_cnt = 0
                 for aoi_opid in sorted(AOI_OPID_ls):
                     if aoi_opid.endswith(ss):
                         if aoi_opid_appear_cnt < 1:
                             OPID_ls_sorted.append(aoi_opid)
                             OPID_ls_sorted.append(aoi_opid + '_MAP')
-                            aoi_opid_appear_cnt+=1
+                            aoi_opid_appear_cnt += 1
+                            
                         else:
-                            if aoi_opid.endswith('DE'):
+                            if lum_opid.endswith(('DE', '+ACO')):
                                 addition_aoi_DE.append(aoi_opid)
-                            elif aoi_opid.endswith('RE'):
+                            else:
+                                addition_aoi_DE.append('')
+                                
+                            if lum_opid.endswith(('RE', '+ACO2')):
                                 addition_aoi_RE.append(aoi_opid)
-            
+                            else:
+                                addition_aoi_RE.append('')
+
             
             for lum_opid_DE, lum_opid_RE, aoi_opid_DE, aoi_opid_RE in zip(
-                addition_lum_DE, addition_lum_RE, addition_aoi_DE, addition_aoi_RE
-            ):
-                OPID_ls_sorted.append(lum_opid_DE)
-                OPID_ls_sorted.append(aoi_opid_DE)
-                OPID_ls_sorted.append(aoi_opid_DE + '_MAP')
-                OPID_ls_sorted.append(lum_opid_RE)
-                OPID_ls_sorted.append(aoi_opid_RE)
-                OPID_ls_sorted.append(aoi_opid_RE + '_MAP') 
+                addition_lum_DE, addition_lum_RE, addition_aoi_DE, addition_aoi_RE):
+                
+                if lum_opid_DE != '' and aoi_opid_DE != '':
+                    OPID_ls_sorted.append(lum_opid_DE)
+                    OPID_ls_sorted.append(aoi_opid_DE)
+                    OPID_ls_sorted.append(aoi_opid_DE + '_MAP')
+                    
+                if lum_opid_RE != '' and aoi_opid_RE != '':
+                    OPID_ls_sorted.append(lum_opid_RE)
+                    OPID_ls_sorted.append(aoi_opid_RE)
+                    OPID_ls_sorted.append(aoi_opid_RE + '_MAP') 
             
-                                       
+            # print(OPID_ls_sorted)                       
+                                   
             defect_df1_group = defect_df1_group[fixed_col + OPID_ls_sorted]
             # 最後一個AOI站點的原因
             defect_df1_group['Failure Analysis'] = defect_df1_group[(fixed_col + OPID_ls_sorted)[-2]]
@@ -370,7 +358,6 @@ class Merge_LUM_and_AOI_Defect():
             return defect_df1_group
         
         else:
-            
             self.defect_df['AOI_OPID'] = ["" for _ in range(len(self.defect_df.index))]
             self.tft_img_link = ["" for _ in range(len(self.defect_df.index))]
             self.defect_df['MAP'] = self.tft_img_link
