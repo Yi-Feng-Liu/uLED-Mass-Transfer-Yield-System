@@ -1,0 +1,39 @@
+{
+    "defect_code_dict":{
+        "AB01": "AB01",
+        "AB02": "Tilt",
+        "AB03": "Crack",
+        "AB04": "shift",
+        "AB05": "Defect Area",
+        "AB06": "缺晶/Not Found",
+        "AB07": "LED色度",
+        "AB08": "LED缺晶",
+        "AB09": "LED亮/暗(輝度)",
+        "AB10": "Rotate",
+        "AB11": "PAD Loss",
+        "AB12": "On Dot",
+        "AB13": "Bright Dot",
+        "AB14": "Multi",
+        "AB15": "Edge",
+        "OK": "LED已上件"
+    },
+    "opid_dict": {
+        "BO": "BO",
+        "-ACL": "BO",
+        "- ACL": "BO",
+        "-ACO": "BO",
+        
+        "DE": "DE",
+        "+ACL": "DE",
+        "+ACO": "DE",
+        
+        "RE": "RE",
+        "+ACL2": "RE",
+        "+ACO2": "RE"
+    },
+    "AOI_OPID_list":{
+        "Main_Bond_list": ["ABO", "-ACO"],
+        "De_Bond_list": ["ADE", "+ACO"],
+        "Repair_list": ["ARE", "+ACO2"]
+    }
+}
