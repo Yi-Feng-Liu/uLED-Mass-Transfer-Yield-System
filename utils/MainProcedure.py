@@ -64,7 +64,7 @@ def getGridFS(DBname:str, collection_name:str):
         fs: GridFS
     """
     
-    client = MongoClient('mongodb://wma:mamcb1@10.88.26.102:27017')
+    client = MongoClient('mongodb://user:account@10.88.26.102:27017')
     db = client[DBname]
     fs = gridfs.GridFS(db, collection=collection_name)
     
