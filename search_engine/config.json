@@ -1,6 +1,6 @@
 {
     "defect_code_dict":{
-        "AB01": "AB01",
+        "AB01": "Particle",
         "AB02": "Tilt",
         "AB03": "Crack",
         "AB04": "shift",
@@ -17,23 +17,63 @@
         "AB15": "Edge",
         "OK": "LED已上件"
     },
+
     "opid_dict": {
         "BO": "BO",
         "-ACL": "BO",
-        "- ACL": "BO",
         "-ACO": "BO",
         
         "DE": "DE",
         "+ACL": "DE",
         "+ACO": "DE",
+        "+ACL11": "DE",
+        "+ACO11": "DE",
+        "+ACL21": "DE",
+        "+ACO21": "DE",
         
         "RE": "RE",
         "+ACL2": "RE",
-        "+ACO2": "RE"
+        "+ACO2": "RE",
+        "+ACL12": "RE",
+        "+ACO12": "RE",
+        "+ACL22": "RE",
+        "+ACO22": "RE"
+
     },
+
     "AOI_OPID_list":{
         "Main_Bond_list": ["ABO", "-ACO"],
-        "De_Bond_list": ["ADE", "+ACO"],
-        "Repair_list": ["ARE", "+ACO2"]
-    }
+        "De_Bond_list": ["ADE", "+ACO", "+ACO11", "+ACO21"],
+        "Repair_list": ["ARE", "+ACO2", "+ACO12", "+ACO22"]
+    },
+
+    "AOI_EDC_COL_NAME":[
+        "CreateTime", 
+        "OPID", 
+        "EQP_ID", 
+        "Model_No", 
+        "ABBR_No", 
+        "EQP_Recipe_ID", 
+        "LED_TYPE",
+        "LED_Index_I", 
+        "LED_Index_J", 
+        "Shift X", 
+        "Shift Y", 
+        "Rotate", 
+        "photoname", 
+        "Defect Reciepe",
+        "Target_Carrier_ID", 
+        "LINK", 
+        "CHIP"
+    ],
+
+    "LUM_EDC_COL_NAME": [
+        "CreateTime",
+        "Target_Carrier_ID",
+        "OPID",
+        "LED_TYPE",
+        "LED_Index_I",
+        "LED_Index_J",
+        "Lighting_check"
+    ]
 }
