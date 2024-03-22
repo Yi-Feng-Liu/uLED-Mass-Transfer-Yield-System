@@ -1,7 +1,6 @@
 from datetime import datetime
 import json
 import os
-from typing import Any
 
 
 class timeTracking():
@@ -29,15 +28,15 @@ class timeTracking():
         return filter_data_ls
 
 
-    def start_time(self, fileName, recordtime=None):
+    def start_time(self, fileName, recordtime=None) -> None:
         json_time_object = {self.types : recordtime}
         timeToJson = json.dumps(json_time_object, default=str)
-        with open(fileName, 'w') as out2file:
+        with open(fileName, "w") as out2file:
             out2file.write(timeToJson)
 
 
-    def read_last_record_time(self, fileName):
-        with open(fileName, 'r') as openfile:
+    def read_last_record_time(self, fileName) -> datetime:
+        with open(fileName, "r") as openfile:
             record_file = json.load(openfile)
         last_time = datetime.fromisoformat(record_file[self.types])
         return last_time 
@@ -47,12 +46,11 @@ class timeTracking():
         filtered_data_list = []
         if not os.path.exists(reocrd_time_json_file):
             self.start_time(reocrd_time_json_file, recordtime=self.timer)
-            initial_time = self.timer.replace(year=2022, month=10, day=1, hour=0, minute=0, second=0)
+            initial_time = self.timer.replace(year=2024, month=2, day=29, hour=0, minute=0, second=0)
             
             for file, filetime in zip(self.datalist, self.dataCTlist):
                 if filetime < self.timer and filetime > initial_time:
                     filtered_data_list.append(file)
-            return filtered_data_list
         
         else:
             last_time = self.read_last_record_time(reocrd_time_json_file)
@@ -61,10 +59,11 @@ class timeTracking():
             for file, filetime in zip(self.datalist, self.dataCTlist):
                 if filetime < self.timer and filetime > last_time:
                     filtered_data_list.append(file)
-            return filtered_data_list
+                    
+        return filtered_data_list
 
 
-    def filter_data_follow_CT(self):
+    def filter_data_follow_CT(self) -> list:
         print(f"[INFO] Filter {self.types} data from Create Time...")
-        filtered_data_list = self.get_filter_data_ls(f'Run_{self.types}_TimingRecord.json')
+        filtered_data_list = self.get_filter_data_ls(f"Run_{self.types}_TimingRecord.json")
         return filtered_data_list
